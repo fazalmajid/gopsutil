@@ -1,10 +1,13 @@
-// +build !darwin,!linux,!freebsd,!openbsd,!windows,!solaris
+// +build solaris
 
 package process
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"syscall"
+	"unsafe"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/internal/common"
@@ -36,17 +39,91 @@ func PidsWithContext(ctx context.Context) ([]int32, error) {
 	return []int32{}, common.ErrNotImplementedError
 }
 
+// NewProcess creates a new Process instance, it only stores the pid and
+// checks that the process exists. Other method on Process can be used
+// to get more information about the process. An error will be returned
+// if the process does not exist.
 func NewProcess(pid int32) (*Process, error) {
-	return nil, common.ErrNotImplementedError
+	p := &Process{
+		Pid: int32(pid),
+	}
+	err := p.readPsinfo(context.Background())
+	return p, err
 }
 
 func (p *Process) Ppid() (int32, error) {
-	return p.PpidWithContext(context.Background())
+	return p.parent, nil
 }
 
 func (p *Process) PpidWithContext(ctx context.Context) (int32, error) {
 	return 0, common.ErrNotImplementedError
 }
+
+func readInt32(b []byte) int32 {
+	return *(*int32)(unsafe.Pointer(&b[0]))
+}
+
+// From /usr/include/procfs.h
+// #define PRARGSZ         80      /* number of chars of arguments */
+// typedef struct psinfo {
+//         int     pr_flag;        /* process flags (DEPRECATED; do not use) */
+//         int     pr_nlwp;        /* number of active lwps in the process */
+//         pid_t   pr_pid;         /* unique process id */
+//         pid_t   pr_ppid;        /* process id of parent */
+//         pid_t   pr_pgid;        /* pid of process group leader */
+//         pid_t   pr_sid;         /* session id */
+//         uid_t   pr_uid;         /* real user id */
+//         uid_t   pr_euid;        /* effective user id */
+//         gid_t   pr_gid;         /* real group id */
+//         gid_t   pr_egid;        /* effective group id */
+//         uintptr_t pr_addr;      /* address of process */
+//         size_t  pr_size;        /* size of process image in Kbytes */
+//         size_t  pr_rssize;      /* resident set size in Kbytes */
+//         size_t  pr_pad1;
+//         dev_t   pr_ttydev;      /* controlling tty device (or PRNODEV) */
+//                         /* The following percent numbers are 16-bit binary */
+//                         /* fractions [0 .. 1] with the binary point to the */
+//                         /* right of the high-order bit (1.0 == 0x8000) */
+//         ushort_t pr_pctcpu;     /* % of recent cpu time used by all lwps */
+//         ushort_t pr_pctmem;     /* % of system memory used by process */
+//         timestruc_t pr_start;   /* process start time, from the epoch */
+//         timestruc_t pr_time;    /* usr+sys cpu time for this process */
+//         timestruc_t pr_ctime;   /* usr+sys cpu time for reaped children */
+//         char    pr_fname[PRFNSZ];       /* name of execed file */
+//         char    pr_psargs[PRARGSZ];     /* initial characters of arg list */
+//         int     pr_wstat;       /* if zombie, the wait() status */
+//         int     pr_argc;        /* initial argument count */
+//         uintptr_t pr_argv;      /* address of initial argument vector */
+//         uintptr_t pr_envp;      /* address of initial environment vector */
+//         char    pr_dmodel;      /* data model of the process */
+//         char    pr_pad2[3];
+//         taskid_t pr_taskid;     /* task id */
+//         projid_t pr_projid;     /* project id */
+//         int     pr_nzomb;       /* number of zombie lwps in the process */
+//         poolid_t pr_poolid;     /* pool id */
+//         zoneid_t pr_zoneid;     /* zone id */
+//         id_t    pr_contract;    /* process contract */
+//         int     pr_filler[1];   /* reserved for future use */
+//         lwpsinfo_t pr_lwp;      /* information for representative lwp */
+// } psinfo_t;
+
+func (p *Process) readPsinfo(ctx context.Context) error {
+	pid := p.Pid
+	var statPath string
+
+	statPath = fmt.Sprintf("/proc/%d/psinfo", pid)
+
+	contents, err := ioutil.ReadFile(statPath)
+	if err != nil {
+		return err
+	}
+
+	// XXX assume 64-bit Solaris
+	p.parent = readInt32(contents[8:12])
+
+	return nil
+}
+
 func (p *Process) Name() (string, error) {
 	return p.NameWithContext(context.Background())
 }
