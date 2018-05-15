@@ -118,8 +118,12 @@ func (p *Process) readPsinfo(ctx context.Context) error {
 		return err
 	}
 
-	// XXX assume 64-bit Solaris
-	p.parent = readInt32(contents[8:12])
+	// XXX assume 64-bit Solaris with 32-bit ints
+	self := readInt32(contents[8:12])
+	if self != p.Pid {
+		return fmt.Errorf("pid and /proc/psinfo mismatch %d != %d", p.Pid, self)
+	}
+	p.parent = readInt32(contents[12:16])
 
 	return nil
 }
