@@ -13,8 +13,8 @@ import (
 	"unsafe"
 
 	"github.com/StackExchange/wmi"
-	"github.com/shirou/gopsutil/internal/common"
-	process "github.com/shirou/gopsutil/process"
+	"github.com/fazalmajid/gopsutil/internal/common"
+	process "github.com/fazalmajid/gopsutil/process"
 	"golang.org/x/sys/windows"
 )
 

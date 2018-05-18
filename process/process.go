@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/internal/common"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/fazalmajid/gopsutil/cpu"
+	"github.com/fazalmajid/gopsutil/internal/common"
+	"github.com/fazalmajid/gopsutil/mem"
 )
 
 var (
